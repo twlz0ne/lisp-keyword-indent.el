@@ -24,7 +24,7 @@
 (when noninteractive
   (transient-mark-mode))
 
-(setq lisp-indent-function 'lisp-keyword-indent)
+(add-hook 'emacs-lisp-mode-hook 'lisp-keyword-indent-mode)
 
 (cl-defun lisp-keyword-indent-test-fn (&key expect-string input-string indent-words)
   (should (equal expect-string

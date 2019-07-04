@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
 ;; Version: 0.1.0
-;; Package-Requires: ((emacs "24.3"))
+;; Package-Requires: ((emacs "24.4"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
 ;; Keywords: 
 
@@ -109,9 +109,15 @@ If POINT is nil, use `(point)' as default."
           (widen)
           (current-column))))))
 
+(defun lisp-keyword-indent--origin-function ()
+  (let ((advice (advice--symbol-function 'lisp-indent-function)))
+    (if (advice--p advice)
+        (advice--cdr advice)
+      'lisp-indent-function)))
+
 (defun lisp-keyword-indent (indent-point state)
   "Reset keyword indent after `lisp-indent-function'."
-  (let ((indent (funcall 'lisp-indent-function indent-point state)))
+  (let ((indent (funcall (lisp-keyword-indent--origin-function) indent-point state)))
     (condition-case err
         (let* ((start-of-last (nth 2 state))
                (lisp-keyword-indent (lisp-keyword-indent--indent-of-first start-of-last)))
@@ -127,6 +133,16 @@ If POINT is nil, use `(point)' as default."
       (error
        (print err)
        indent))))
+
+;;;###autoload
+(define-minor-mode lisp-keyword-indent-mode
+  "Minor mode for keyword indent of Emacs Lisp."
+  :init-value nil
+  :lighter ""
+  :keymap nil
+  (if lisp-keyword-indent-mode
+      (advice-add 'lisp-indent-function :override #'lisp-keyword-indent)
+    (advice-remove 'lisp-indent-function #'lisp-keyword-indent)))
 
 (provide 'lisp-keyword-indent)
 
