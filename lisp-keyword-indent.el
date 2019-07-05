@@ -38,17 +38,17 @@
 ;;     :b 2
 ;;     :c 3)
 ;;
-;; Or when the `lisp-keyword-indent-value-offset` is set to non-zero:
+;; Also can indent `cl-defun' like following:
 ;;
-;;   '(:a
-;;        1
-;;        2
-;;        3
-;;     :b
-;;        4
-;;        5
-;;     :c
-;;        6)
+;;   (cl-defun func (&a
+;;                     1
+;;                     2
+;;                     3
+;;                   &b
+;;                     4
+;;                     5
+;;                   &c
+;;                     6))
 ;;
 ;; See README.md for more information.
 
@@ -58,56 +58,91 @@
 
 ;;; Code:
 
-(defcustom lisp-keyword-indent-keyword-starter '(":" "&")
-  "Starter of keyword."
+(require 'thingatpt)
+
+(defcustom lisp-keyword-indent-rules
+  '((":" . (:multiple-value nil :value-offset 0))
+    ("&" . (:multiple-value t   :value-offset 2)))
+  "Rules of keyword indent."
   :type 'list
   :group 'lisp-keyword-indent)
 
-(defcustom lisp-keyword-indent-value-offset 0
-  "Indent offset of the value of keyword."
-  :type 'integer
-  :group 'lisp-keyword-indent)
-
-(defun lisp-keyword-indent--keyword-at-point ()
+(defun lisp-keyword-indent--keyword-at-point (&optional no-properties)
   "Return the keyword at point.
 
 When the optional argument NO-PROPERTIES is non-nil,
 strip text properties from the return value. "
-  (let ((sexp (thing-at-point 'sexp)))
-    (when (string-match-p
-           (concat
-            "\\`\\("
-            (mapconcat 'identity lisp-keyword-indent-keyword-starter "\\|")
-            "\\)")
-           (or sexp ""))
+  (let ((sexp (thing-at-point 'sexp no-properties))
+        (prefixes (mapcar 'car lisp-keyword-indent-rules)))
+    (when (and sexp
+               prefixes
+               (string-match-p
+                (concat
+                 "\\`\\(?:"
+                 (mapconcat 'identity prefixes "\\|")
+                 "\\)")
+                sexp))
       sexp)))
 
-(defun lisp-keyword-indent--indent-of-first (&optional point)
-  "Return the indent of first keyword before POINT.
+(defun lisp-keyword-indent--first-keyword (&optional point)
+  (save-excursion
+    (when point
+      (goto-char point))
+    (let ((sexp-bound (bounds-of-thing-at-point 'sexp)))
+      (when sexp-bound
+        (goto-char (cdr sexp-bound))))
+    (let ((list-bound (bounds-of-thing-at-point 'list))
+          (distance 0)
+          (temp-distance 0)
+          indent
+          sexp)
+      (when list-bound
+        (save-restriction
+          (narrow-to-region
+           (+ (car list-bound)
+              (if (eq (char-after (car list-bound)) ?\') 1 0))
+           (point))
+          (while (let ((first-point (point))
+                       (curr-sexp (lisp-keyword-indent--keyword-at-point t)))
+                   (when curr-sexp
+                     (setq sexp curr-sexp)
+                     (save-restriction
+                       (widen)
+                       (setq indent (current-column))
+                       (setq distance temp-distance)))
+                   (ignore-errors
+                     (backward-sexp))
+                   (setq temp-distance (1+ temp-distance))
+                   (not (eq first-point (point)))))
+          (when sexp
+            (list :sexp sexp :indent indent :distance distance)))))))
 
-If POINT is nil, use `(point)' as default."
-    (save-excursion
-      (when point
-        (goto-char point))
-      (let ((list-bound (bounds-of-thing-at-point 'list))
-            (region-end (or (cdr (bounds-of-thing-at-point 'sexp))
-                            (point))))
-      (save-restriction
-        (narrow-to-region (car list-bound) region-end)
-        (goto-char (+ (point-min)
-                      (if (eq (char-after (car list-bound)) ?\') 2 1)))
-        (when (or (lisp-keyword-indent--keyword-at-point)
-                  (catch 'found
-                    (while (let ((last-point (point)))
-                             (ignore-errors
-                               (forward-sexp))
-                             (not (eq last-point (point))))
-                      (when (lisp-keyword-indent--keyword-at-point)
-                        (throw 'found t)))))
-          (ignore-errors
-            (backward-sexp))
-          (widen)
-          (current-column))))))
+(defun lisp-keyword-indent--last-keyword (&optional point)
+  (save-excursion
+    (when point
+      (goto-char point))
+    (let ((sexp-bound (bounds-of-thing-at-point 'sexp)))
+      (when sexp-bound
+        (goto-char (cdr sexp-bound))))
+    (let ((list-bound (bounds-of-thing-at-point 'list))
+          (distance 0)
+          (sexp))
+      (when list-bound
+        (save-restriction
+          (narrow-to-region
+           (+ (car list-bound)
+              (if (eq (char-after (car list-bound)) ?\') 1 0))
+           (point))
+          (when (catch 'found
+                  (while (let ((last-point (point)))
+                           (ignore-errors
+                             (backward-sexp))
+                           (setq distance (1+ distance))
+                           (not (eq last-point (point))))
+                    (setq sexp (lisp-keyword-indent--keyword-at-point t))
+                    (when sexp (throw 'found sexp))))
+            (widen)
+            (list :sexp sexp :indent (current-column) :distance distance)))))))
 
 (defun lisp-keyword-indent--origin-function ()
   (let ((advice (advice--symbol-function 'lisp-indent-function)))
@@ -115,24 +150,43 @@ If POINT is nil, use `(point)' as default."
         (advice--cdr advice)
       'lisp-indent-function)))
 
+(defun lisp-keyword-indent-1 (indent-point state)
+  (condition-case err
+      (let* ((start-of-last (nth 2 state))
+             (indent-sexp (save-excursion
+                            (goto-char indent-point)
+                            (ignore-errors
+                              (forward-sexp 1))
+                            (beginning-of-sexp)
+                            (thing-at-point 'sexp t)))
+             (indent-prefix (and indent-sexp
+                                 (assoc (substring indent-sexp 0 1)
+                                        lisp-keyword-indent-rules)
+                                 t)))
+        ;; indent keyword
+        (if indent-prefix
+            (let ((first-keyword-state (lisp-keyword-indent--first-keyword start-of-last)))
+              (when first-keyword-state
+                (plist-get first-keyword-state :indent)))
+          ;; indent keyvalue
+          (let* ((last-keyword-state (lisp-keyword-indent--last-keyword start-of-last))
+                 (rule (and last-keyword-state
+                        (assoc-default
+                        (substring (plist-get last-keyword-state :sexp) 0 1)
+                        lisp-keyword-indent-rules))))
+            (when (and rule last-keyword-state
+                       (or (plist-get rule :multiple-value)
+                           (< (plist-get rule :value-offset) 1)))
+              (+ (plist-get last-keyword-state :indent) (plist-get rule :value-offset))))))
+    (error
+     (print err)
+     nil)))
+
 (defun lisp-keyword-indent (indent-point state)
   "Reset keyword indent after `lisp-indent-function'."
-  (let ((indent (funcall (lisp-keyword-indent--origin-function) indent-point state)))
-    (condition-case err
-        (let* ((start-of-last (nth 2 state))
-               (lisp-keyword-indent (lisp-keyword-indent--indent-of-first start-of-last)))
-          (if lisp-keyword-indent
-              (if (and (> lisp-keyword-indent-value-offset 0)
-                       (save-excursion
-                         (goto-char indent-point)
-                         (forward-sexp 1)
-                         (not (lisp-keyword-indent--keyword-at-point))))
-                  (+ lisp-keyword-indent lisp-keyword-indent-value-offset)
-                lisp-keyword-indent)
-            indent))
-      (error
-       (print err)
-       indent))))
+  (let ((indent (funcall (lisp-keyword-indent--origin-function) indent-point state))
+        (keyword-indent (lisp-keyword-indent-1 indent-point state)))
+    (or keyword-indent indent)))
 
 ;;;###autoload
 (define-minor-mode lisp-keyword-indent-mode
