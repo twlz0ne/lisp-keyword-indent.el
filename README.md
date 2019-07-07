@@ -35,22 +35,7 @@ After:
   :c 3)
 ```
 
-Or when the `lisp-keyword-indent-value-offset` is set to non-zero:
-
-```elisp
-'(:a
-     1
-     2
-     3
-  :b
-     4
-     5
-  :c
-     6)
-
-```
-
-Also support `&' keywords:
+Also can indent `cl-defun` like following:
 
 ```elisp
 (cl-defun func (&whole
