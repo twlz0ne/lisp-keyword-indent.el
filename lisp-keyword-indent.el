@@ -176,7 +176,8 @@ strip text properties from the return value. "
                         lisp-keyword-indent-rules))))
             (when (and rule last-keyword-state
                        (or (plist-get rule :multiple-value)
-                           (< (plist-get rule :value-offset) 1)))
+                           (and (not (plist-get rule :multiple-value))
+                                (< (plist-get last-keyword-state :distance) 2))))
               (+ (plist-get last-keyword-state :indent) (plist-get rule :value-offset))))))
     (error
      (print err)
