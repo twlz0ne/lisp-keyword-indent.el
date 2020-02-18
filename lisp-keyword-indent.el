@@ -79,7 +79,7 @@ strip text properties from the return value. "
                (string-match-p
                 (concat
                  "\\`\\(?:"
-                 (mapconcat 'identity prefixes "\\|")
+                 (mapconcat 'regexp-quote prefixes "\\|")
                  "\\)")
                 sexp))
       sexp)))
