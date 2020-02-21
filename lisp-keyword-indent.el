@@ -145,10 +145,10 @@ strip text properties from the return value. "
             (list :sexp sexp :indent (current-column) :distance distance)))))))
 
 (defun lisp-keyword-indent--origin-function ()
-  (let ((advice (advice--symbol-function 'lisp-indent-function)))
+  (let ((advice (advice--symbol-function lisp-indent-function)))
     (if (advice--p advice)
         (advice--cdr advice)
-      'lisp-indent-function)))
+      lisp-indent-function)))
 
 (defun lisp-keyword-indent-1 (indent-point state)
   (condition-case err
@@ -190,14 +190,18 @@ strip text properties from the return value. "
     (or keyword-indent indent)))
 
 ;;;###autoload
+(define-globalized-minor-mode global-lisp-keyword-indent-mode
+  lisp-keyword-indent-mode (lambda () (lisp-keyword-indent-mode 1)))
+
+;;;###autoload
 (define-minor-mode lisp-keyword-indent-mode
   "Minor mode for keyword indent of Emacs Lisp."
   :init-value nil
   :lighter ""
   :keymap nil
   (if lisp-keyword-indent-mode
-      (advice-add 'lisp-indent-function :override #'lisp-keyword-indent)
-    (advice-remove 'lisp-indent-function #'lisp-keyword-indent)))
+      (advice-add lisp-indent-function :override #'lisp-keyword-indent)
+    (advice-remove lisp-indent-function #'lisp-keyword-indent)))
 
 (provide 'lisp-keyword-indent)
 
