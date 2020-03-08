@@ -256,6 +256,48 @@
 :d
 4))"))
 
+(ert-deftest lisp-keyword-indent-normal-list ()
+  (lisp-keyword-indent-test--indent-region
+   :expect "\
+'(a
+  b
+  c)"
+   :input "\
+'(a
+b
+c)")
+(lisp-keyword-indent-test--indent-region
+   :expect "\
+'(a b
+  c)"
+   :input "\
+'(a b
+c)"))
+
+(ert-deftest lisp-keyword-indent-normal-list-contains-function ()
+  (lisp-keyword-indent-test--indent-region
+   :expect "\
+'(defun
+  b
+  c)"
+   :input "\
+'(defun
+b
+c)"))
+
+(ert-deftest lisp-keyword-indent-non-keyvalue ()
+  (let ((lisp-keyword-indent-rules
+         '((":" . (:multiple-value nil :value-offset 2)))))
+    (lisp-keyword-indent-test--indent-region
+     :expect "\
+'(:keyword
+    keyvalue
+  non-keyvalue)"
+     :input "\
+'(:keyword
+keyvalue
+non-keyvalue)")))
+
 (provide 'lisp-keyword-indent-test)
 
 ;;; lisp-keyword-indent-test.el ends here

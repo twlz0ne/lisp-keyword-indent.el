@@ -118,6 +118,13 @@ strip text properties from the return value. "
             (list :sexp sexp :indent indent :distance distance)))))))
 
 (defun lisp-keyword-indent--last-keyword (&optional point)
+  "Return last keyword before POINT.
+
+Return value is in the form of:
+
+  (:sexp     SEXP       ;; keyword sexp
+   :indent   INDENT     ;; indent of keyword
+   :distance DISTANCE)  ;; distance from point (in sexps)"
   (save-excursion
     (when point
       (goto-char point))
@@ -171,14 +178,34 @@ strip text properties from the return value. "
           ;; indent keyvalue
           (let* ((last-keyword-state (lisp-keyword-indent--last-keyword start-of-last))
                  (rule (and last-keyword-state
-                        (assoc-default
-                        (substring (plist-get last-keyword-state :sexp) 0 1)
-                        lisp-keyword-indent-rules))))
-            (when (and rule last-keyword-state
-                       (or (plist-get rule :multiple-value)
-                           (and (not (plist-get rule :multiple-value))
-                                (< (plist-get last-keyword-state :distance) 2))))
-              (+ (plist-get last-keyword-state :indent) (plist-get rule :value-offset))))))
+                            (assoc-default
+                             (substring (plist-get last-keyword-state :sexp) 0 1)
+                             lisp-keyword-indent-rules))))
+            (if (and rule last-keyword-state)
+                (if (or (plist-get rule :multiple-value)
+                        (and (not (plist-get rule :multiple-value))
+                             (< (plist-get last-keyword-state :distance) 2)))
+                    (+ (plist-get last-keyword-state :indent) (plist-get rule :value-offset))
+                  ;; not value of last keyword
+                  (plist-get last-keyword-state :indent))
+              ;; no rule
+              (let ((outer-start (car (reverse (nth 9 state)))))
+                (when (and (eq (char-before outer-start) ?\')
+                           (eq (char-after outer-start) ?\())
+                  ;; align last sexp
+                  (save-excursion
+                    (let ((bound (progn
+                                   (goto-char outer-start)
+                                   (bounds-of-thing-at-point 'sexp))))
+                      (save-restriction
+                        (narrow-to-region (car bound) (cdr bound))
+                        (goto-char indent-point)
+                        (while (condition-case err
+                                   (progn
+                                     (backward-sexp)
+                                     (not (looking-back "^[\s\t]*")))
+                                 (error))))
+                      (current-column)))))))))
     (error
      (print err)
      nil)))
