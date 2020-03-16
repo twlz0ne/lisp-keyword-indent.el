@@ -7,7 +7,7 @@
 ;; Version: 0.1.0
 ;; Package-Requires: ((emacs "24.4"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
-;; Keywords: 
+;; Keywords: tools
 
 ;; This program is free software; you can redistribute it and/or modify
 ;; it under the terms of the GNU General Public License as published by
@@ -157,6 +157,10 @@ Return value is in the form of:
         (advice--cdr advice)
       lisp-indent-function)))
 
+(defalias 'lisp-keyword-indent--beginning-of-sexp
+  (cond ((fboundp 'thing-at-point--beginning-of-sexp) 'thing-at-point--beginning-of-sexp)
+        ((fboundp 'beginning-of-sexp) 'beginning-of-sexp)))
+
 (defun lisp-keyword-indent-1 (indent-point state)
   (condition-case err
       (let* ((start-of-last (nth 2 state))
@@ -164,7 +168,7 @@ Return value is in the form of:
                             (goto-char indent-point)
                             (ignore-errors
                               (forward-sexp 1))
-                            (beginning-of-sexp)
+                            (lisp-keyword-indent--beginning-of-sexp)
                             (thing-at-point 'sexp t)))
              (indent-prefix (and indent-sexp
                                  (assoc (substring indent-sexp 0 1)
@@ -203,8 +207,10 @@ Return value is in the form of:
                         (while (condition-case err
                                    (progn
                                      (backward-sexp)
-                                     (not (looking-back "^[\s\t]*")))
-                                 (error))))
+                                     (not (looking-back "^[\s\t]*" 1)))
+                                 (scan-error
+                                  (print err)
+                                  nil))))
                       (current-column)))))))))
     (error
      (print err)
@@ -217,10 +223,6 @@ Return value is in the form of:
     (or keyword-indent indent)))
 
 ;;;###autoload
-(define-globalized-minor-mode global-lisp-keyword-indent-mode
-  lisp-keyword-indent-mode (lambda () (lisp-keyword-indent-mode 1)))
-
-;;;###autoload
 (define-minor-mode lisp-keyword-indent-mode
   "Minor mode for keyword indent of Emacs Lisp."
   :init-value nil
@@ -229,6 +231,10 @@ Return value is in the form of:
   (if lisp-keyword-indent-mode
       (advice-add lisp-indent-function :override #'lisp-keyword-indent)
     (advice-remove lisp-indent-function #'lisp-keyword-indent)))
+
+;;;###autoload
+(define-globalized-minor-mode global-lisp-keyword-indent-mode
+  lisp-keyword-indent-mode (lambda () (lisp-keyword-indent-mode 1)))
 
 (provide 'lisp-keyword-indent)
 
