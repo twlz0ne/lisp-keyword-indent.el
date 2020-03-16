@@ -162,59 +162,54 @@ Return value is in the form of:
         ((fboundp 'beginning-of-sexp) 'beginning-of-sexp)))
 
 (defun lisp-keyword-indent-1 (indent-point state)
-  (condition-case err
-      (let* ((start-of-last (nth 2 state))
-             (indent-sexp (save-excursion
-                            (goto-char indent-point)
-                            (ignore-errors
-                              (forward-sexp 1))
-                            (lisp-keyword-indent--beginning-of-sexp)
-                            (thing-at-point 'sexp t)))
-             (indent-prefix (and indent-sexp
-                                 (assoc (substring indent-sexp 0 1)
-                                        lisp-keyword-indent-rules)
-                                 t)))
-        ;; indent keyword
-        (if indent-prefix
-            (let ((first-keyword-state (lisp-keyword-indent--first-keyword start-of-last)))
-              (when first-keyword-state
-                (plist-get first-keyword-state :indent)))
-          ;; indent keyvalue
-          (let* ((last-keyword-state (lisp-keyword-indent--last-keyword start-of-last))
-                 (rule (and last-keyword-state
-                            (assoc-default
-                             (substring (plist-get last-keyword-state :sexp) 0 1)
-                             lisp-keyword-indent-rules))))
-            (if (and rule last-keyword-state)
-                (if (or (plist-get rule :multiple-value)
-                        (and (not (plist-get rule :multiple-value))
-                             (< (plist-get last-keyword-state :distance) 2)))
-                    (+ (plist-get last-keyword-state :indent) (plist-get rule :value-offset))
-                  ;; not value of last keyword
-                  (plist-get last-keyword-state :indent))
-              ;; no rule
-              (let ((outer-start (car (reverse (nth 9 state)))))
-                (when (and (eq (char-before outer-start) ?\')
-                           (eq (char-after outer-start) ?\())
-                  ;; align last sexp
-                  (save-excursion
-                    (let ((bound (progn
-                                   (goto-char outer-start)
-                                   (bounds-of-thing-at-point 'sexp))))
-                      (save-restriction
-                        (narrow-to-region (car bound) (cdr bound))
+  (let* ((start-of-last (nth 2 state))
+         (indent-sexp (save-excursion
                         (goto-char indent-point)
-                        (while (condition-case err
-                                   (progn
-                                     (backward-sexp)
-                                     (not (looking-back "^[\s\t]*" 1)))
-                                 (scan-error
-                                  (print err)
-                                  nil))))
-                      (current-column)))))))))
-    (error
-     (print err)
-     nil)))
+                        (ignore-errors
+                          (forward-sexp 1))
+                        (lisp-keyword-indent--beginning-of-sexp)
+                        (thing-at-point 'sexp t)))
+         (indent-prefix (and indent-sexp
+                             (assoc (substring indent-sexp 0 1)
+                                    lisp-keyword-indent-rules)
+                             t)))
+    ;; indent keyword
+    (if indent-prefix
+        (let ((first-keyword-state (lisp-keyword-indent--first-keyword start-of-last)))
+          (when first-keyword-state
+            (plist-get first-keyword-state :indent)))
+      ;; indent keyvalue
+      (let* ((last-keyword-state (lisp-keyword-indent--last-keyword start-of-last))
+             (rule (and last-keyword-state
+                        (assoc-default
+                         (substring (plist-get last-keyword-state :sexp) 0 1)
+                         lisp-keyword-indent-rules))))
+        (if (and rule last-keyword-state)
+            (if (or (plist-get rule :multiple-value)
+                    (and (not (plist-get rule :multiple-value))
+                         (< (plist-get last-keyword-state :distance) 2)))
+                (+ (plist-get last-keyword-state :indent) (plist-get rule :value-offset))
+              ;; not value of last keyword
+              (plist-get last-keyword-state :indent))
+          ;; no rule
+          (let ((outer-start (car (reverse (nth 9 state)))))
+            (when (and (eq (char-before outer-start) ?\')
+                       (eq (char-after outer-start) ?\())
+              ;; align last sexp
+              (save-excursion
+                (let ((bound (progn
+                               (goto-char outer-start)
+                               (bounds-of-thing-at-point 'sexp))))
+                  (save-restriction
+                    (when (region-active-p)
+                      (narrow-to-region (car bound) (cdr bound)))
+                    (goto-char indent-point)
+                    (while (condition-case _err
+                               (progn
+                                 (backward-sexp)
+                                 (not (looking-back "^[\s\t]*" 1)))
+                             (scan-error nil))))
+                  (current-column))))))))))
 
 (defun lisp-keyword-indent (indent-point state)
   "Reset keyword indent after `lisp-indent-function'."
