@@ -67,6 +67,12 @@
   :type 'list
   :group 'lisp-keyword-indent)
 
+(defcustom list-keyword-indent-ignore-forms
+  '(defmethod cl-defmethod advice-add)
+  "List of forms that don't apply keywork indent."
+  :type 'list
+  :group 'lisp-keyword-indent)
+
 (defun lisp-keyword-indent--keyword-at-point (&optional no-properties)
   "Return the keyword at point.
 
@@ -134,7 +140,11 @@ Return value is in the form of:
     (let ((list-bound (bounds-of-thing-at-point 'list))
           (distance 0)
           (sexp))
-      (when list-bound
+      (when (and list-bound
+                 (save-excursion
+                   (goto-char (car list-bound))
+                   (down-list)
+                   (not (memq (sexp-at-point) list-keyword-indent-ignore-forms))))
         (save-restriction
           (narrow-to-region
            (+ (car list-bound)
