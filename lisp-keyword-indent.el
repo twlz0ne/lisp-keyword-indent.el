@@ -175,10 +175,9 @@ Return value is in the form of:
   (let* ((start-of-last (nth 2 state))
          (indent-sexp (save-excursion
                         (goto-char indent-point)
-                        (ignore-errors
-                          (forward-sexp 1))
-                        (lisp-keyword-indent--beginning-of-sexp)
-                        (thing-at-point 'sexp t)))
+                        (when (ignore-errors (forward-sexp 1) t)
+                          (lisp-keyword-indent--beginning-of-sexp)
+                          (thing-at-point 'sexp t))))
          (indent-prefix (and indent-sexp
                              (assoc (substring indent-sexp 0 1)
                                     lisp-keyword-indent-rules)
