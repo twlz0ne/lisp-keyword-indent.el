@@ -202,23 +202,14 @@ Return value is in the form of:
               (plist-get last-keyword-state :indent))
           ;; no rule
           (let ((outer-start (car (reverse (nth 9 state)))))
+            ;; in quote list
             (when (and (eq (char-before outer-start) ?\')
                        (eq (char-after outer-start) ?\())
-              ;; align last sexp
+              ;; align prev sexp
               (save-excursion
-                (let ((bound (progn
-                               (goto-char outer-start)
-                               (bounds-of-thing-at-point 'sexp))))
-                  (save-restriction
-                    (when (region-active-p)
-                      (narrow-to-region (car bound) (cdr bound)))
-                    (goto-char indent-point)
-                    (while (condition-case _err
-                               (progn
-                                 (backward-sexp)
-                                 (not (looking-back "^[\s\t]*" 1)))
-                             (scan-error nil))))
-                  (current-column))))))))))
+                (goto-char indent-point)
+                (backward-sexp)
+                (current-column)))))))))
 
 (defun lisp-keyword-indent (indent-point state)
   "Reset keyword indent after `lisp-indent-function'."

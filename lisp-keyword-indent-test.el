@@ -269,7 +269,7 @@ c)")
 (lisp-keyword-indent-test--indent-region
    :expect "\
 '(a b
-  c)"
+    c)"
    :input "\
 '(a b
 c)"))
