@@ -272,6 +272,20 @@ c)")
     c)"
    :input "\
 '(a b
+c)")
+(lisp-keyword-indent-test--indent-region
+   :expect "\
+'(\"a\" b
+  c)"
+   :input "\
+'(\"a\" b
+c)")
+(lisp-keyword-indent-test--indent-region
+   :expect "\
+'((a) b
+  c)"
+   :input "\
+'((a) b
 c)"))
 
 (ert-deftest lisp-keyword-indent-normal-list-contains-function ()

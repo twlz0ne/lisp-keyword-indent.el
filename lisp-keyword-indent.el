@@ -204,7 +204,9 @@ Return value is in the form of:
           (let ((outer-start (car (reverse (nth 9 state)))))
             ;; in quote list
             (when (and (eq (char-before outer-start) ?\')
-                       (eq (char-after outer-start) ?\())
+                       (eq (char-after outer-start) ?\()
+                       (not (or (eq (char-after (1+ outer-start)) ?\")
+                                (eq (char-after (1+ outer-start)) ?\())))
               ;; align prev sexp
               (save-excursion
                 (goto-char indent-point)
