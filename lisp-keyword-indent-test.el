@@ -301,7 +301,7 @@ c)"))
 
 (ert-deftest lisp-keyword-indent-non-keyvalue ()
   (let ((lisp-keyword-indent-rules
-         '((":" . (:multiple-value nil :value-offset 2)))))
+         '((":" . (:value-nums 1 :value-offset 2)))))
     (lisp-keyword-indent-test--indent-region
      :expect "\
 '(:keyword

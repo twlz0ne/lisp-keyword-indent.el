@@ -4,7 +4,7 @@
 
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
-;; Version: 0.1.14
+;; Version: 0.2.0
 ;; Package-Requires: ((emacs "24.4"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
 ;; Keywords: tools
@@ -57,8 +57,8 @@
 (require 'thingatpt)
 
 (defcustom lisp-keyword-indent-rules
-  '((":" . (:multiple-value nil :value-offset 0))
-    ("&" . (:multiple-value t   :value-offset 2)))
+  '((":" . (:value-nums 1 :value-offset 0))
+    ("&" . (:value-nums t :value-offset 2)))
   "Rules of keyword indent.
 
 Eache element of it is in the form of:
@@ -67,7 +67,8 @@ Eache element of it is in the form of:
 
 Following are supported properties:
 
-:multiple-value         Non-nil means there are multiple values, default nil.
+:value-nums             Should be one of the 0 (no value) or 1 (1 value) or (
+                        multiple values), default 0.
 
 :value-offset           Offset of keyvalue, default 0.
 
@@ -208,18 +209,21 @@ Return value is in the form of:
            (when first-keyword-state
              (plist-get first-keyword-state :indent)))
        ;; indent keyvalue
-       (let* ((last-keyword-state (lisp-keyword-indent--last-keyword start-of-last))
-              (rule (and last-keyword-state
-                         (assoc-default
-                          (substring (plist-get last-keyword-state :sexp) 0 1)
-                          lisp-keyword-indent-rules))))
-         (if (and rule last-keyword-state)
-             (if (or (plist-get rule :multiple-value)
-                     (and (not (plist-get rule :multiple-value))
-                          (< (plist-get last-keyword-state :distance) 2)))
-                 (+ (plist-get last-keyword-state :indent) (plist-get rule :value-offset))
-               ;; not value of last keyword
-               (plist-get last-keyword-state :indent)))))
+       (let* ((last-sate (lisp-keyword-indent--last-keyword start-of-last))
+              (last-rule (when last-sate
+                           (assoc-default
+                            (substring (plist-get last-sate :sexp) 0 1)
+                            lisp-keyword-indent-rules)))
+              (value-nums (when last-rule
+                            (or (plist-get last-rule :value-nums) 0)))
+              (distance (plist-get last-sate :distance)))
+         (when value-nums
+           (if (or (not (numberp value-nums))
+                   (and (numberp value-nums) (<= distance value-nums)))
+               (+ (plist-get last-sate :indent)
+                  (or (plist-get last-rule :value-offset) 0))
+             ;; not keyvalue, align prev keyword
+             (+ (plist-get last-sate :indent))))))
      ;; no rule
      (let ((outer-start (car (reverse (nth 9 state)))))
        ;; in quote list
