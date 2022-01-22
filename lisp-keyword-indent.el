@@ -4,7 +4,7 @@
 
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
-;; Version: 0.2.0
+;; Version: 0.2.1
 ;; Package-Requires: ((emacs "24.4"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
 ;; Keywords: tools
@@ -108,40 +108,37 @@ strip text properties from the return value. "
                 sexp))
       sexp)))
 
-(defun lisp-keyword-indent--first-keyword (&optional point)
+(defun lisp-keyword-indent--first-keyword (start &optional point)
   (save-excursion
     (when point
       (goto-char point))
     (let ((sexp-bound (bounds-of-thing-at-point 'sexp)))
       (when sexp-bound
         (goto-char (cdr sexp-bound))))
-    (let ((list-bound (bounds-of-thing-at-point 'list))
-          (distance 0)
+    (let ((distance 0)
           (temp-distance 0)
           indent
           sexp)
-      (when list-bound
-        (save-restriction
-          (narrow-to-region
-           (+ (car list-bound)
-              (if (eq (char-after (car list-bound)) ?\') 1 0))
-           (point))
-          (while (let ((first-point (point))
-                       (curr-sexp (lisp-keyword-indent--keyword-at-point t)))
-                   (when curr-sexp
-                     (setq sexp curr-sexp)
-                     (save-restriction
-                       (widen)
-                       (setq indent (current-column))
-                       (setq distance temp-distance)))
-                   (ignore-errors
-                     (backward-sexp))
-                   (setq temp-distance (1+ temp-distance))
-                   (not (eq first-point (point)))))
-          (when sexp
-            (list :sexp sexp :indent indent :distance distance)))))))
+      (save-restriction
+        (narrow-to-region
+         (+ start (if (eq (char-after start) ?\') 1 0))
+         (point))
+        (while (let ((first-point (point))
+                     (curr-sexp (lisp-keyword-indent--keyword-at-point t)))
+                 (when curr-sexp
+                   (setq sexp curr-sexp)
+                   (save-restriction
+                     (widen)
+                     (setq indent (current-column))
+                     (setq distance temp-distance)))
+                 (ignore-errors
+                   (backward-sexp))
+                 (setq temp-distance (1+ temp-distance))
+                 (not (eq first-point (point)))))
+        (when sexp
+          (list :sexp sexp :indent indent :distance distance))))))
 
-(defun lisp-keyword-indent--last-keyword (&optional point)
+(defun lisp-keyword-indent--last-keyword (start &optional point)
   "Return last keyword before POINT.
 
 Return value is in the form of:
@@ -155,18 +152,16 @@ Return value is in the form of:
     (let ((sexp-bound (bounds-of-thing-at-point 'sexp)))
       (when sexp-bound
         (goto-char (cdr sexp-bound))))
-    (let ((list-bound (bounds-of-thing-at-point 'list))
-          (distance 0)
+    (let ((distance 0)
           (sexp))
-      (when (and list-bound
-                 (save-excursion
-                   (goto-char (car list-bound))
-                   (down-list)
-                   (not (memq (sexp-at-point) list-keyword-indent-ignore-forms))))
+      (when (save-excursion
+              (goto-char start)
+              (down-list)
+              (not (memq (sexp-at-point) list-keyword-indent-ignore-forms)))
         (save-restriction
           (narrow-to-region
-           (+ (car list-bound)
-              (if (eq (char-after (car list-bound)) ?\') 1 0))
+           (+ start
+              (if (eq (char-after start) ?\') 1 0))
            (point))
           (when (catch 'found
                   (while (let ((last-point (point)))
@@ -191,6 +186,7 @@ Return value is in the form of:
 
 (defun lisp-keyword-indent-1 (indent-point state)
   (let* ((start-of-last (nth 2 state))
+         (start-of-innermost (ppss-innermost-start state))
          (indent-sexp (save-excursion
                         (goto-char indent-point)
                         (when (ignore-errors (forward-sexp 1) t)
@@ -205,11 +201,13 @@ Return value is in the form of:
          (let* ((checker (plist-get indent-rule :extra-check))
                 (first-keyword-state
                  (when (if checker (funcall checker indent-rule state) t)
-                   (lisp-keyword-indent--first-keyword start-of-last))))
+                   (lisp-keyword-indent--first-keyword start-of-innermost
+                                                       start-of-last))))
            (when first-keyword-state
              (plist-get first-keyword-state :indent)))
        ;; indent keyvalue
-       (let* ((last-sate (lisp-keyword-indent--last-keyword start-of-last))
+       (let* ((last-sate (lisp-keyword-indent--last-keyword start-of-innermost
+                                                            start-of-last))
               (last-rule (when last-sate
                            (assoc-default
                             (substring (plist-get last-sate :sexp) 0 1)

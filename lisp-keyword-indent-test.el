@@ -33,7 +33,7 @@
                    (emacs-lisp-mode)
                    (goto-char (point-max))
                    (re-search-backward point-at)
-                   (funcall exe-func)))))
+                   (funcall exe-func (ppss-innermost-start (syntax-ppss)))))))
 
 (cl-defun lisp-keyword-indent-test--indent-region (&key expect input)
   (should (equal expect
@@ -113,12 +113,12 @@
   (lisp-keyword-indent-test--indent-region
    :expect "\
 '(:a 1
-     :b 2
-     :c 3"
+  :b 2
+  :c 3"
    :input "\
 '(:a 1
-:b 2
-:c 3"))
+  :b 2
+  :c 3"))
 
 (ert-deftest lisp-keyword-indent-test-2 ()
   (lisp-keyword-indent-test--indent-region
