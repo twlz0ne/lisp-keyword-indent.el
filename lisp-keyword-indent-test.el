@@ -26,14 +26,17 @@
 
 (add-hook 'emacs-lisp-mode-hook 'lisp-keyword-indent-mode)
 
-(cl-defun lisp-keyword-indent-tes--execute-fn-at-point(&key expect input point-at exe-func)
+(defun lisp-keyword-indent-test--keyword-at-point (_ _ rules)
+  (lisp-keyword-indent--keyword-at-point rules))
+
+(cl-defun lisp-keyword-indent-tes--execute-fn-at-point(&key expect input point-at exe-func rules)
   (should (equal expect
                  (with-temp-buffer
                    (insert input)
                    (emacs-lisp-mode)
                    (goto-char (point-max))
                    (re-search-backward point-at)
-                   (funcall exe-func (ppss-innermost-start (syntax-ppss)))))))
+                   (funcall exe-func (point) (syntax-ppss) rules)))))
 
 (cl-defun lisp-keyword-indent-test--indent-region (&key expect input)
   (should (equal expect
@@ -52,7 +55,8 @@
    (lambda (it)
      (lisp-keyword-indent-tes--execute-fn-at-point
       :input    "'(func :foo 1 :bar 2 :qux 3)"
-      :exe-func 'lisp-keyword-indent--keyword-at-point
+      :exe-func 'lisp-keyword-indent-test--keyword-at-point
+      :rules    (alist-get nil lisp-keyword-indent-rules)
       :point-at (car it)
       :expect   (cdr it)))
    '(("func" . nil)
@@ -69,15 +73,16 @@
      (lisp-keyword-indent-tes--execute-fn-at-point
       :input    "'(func :foo 1 :bar 2 :qux 3)"
       :exe-func 'lisp-keyword-indent--last-keyword
+      :rules    (alist-get nil lisp-keyword-indent-rules)
       :point-at (car it)
       :expect   (cdr it)))
    '(("func" . nil)
-     (":foo" . (:sexp ":foo" :indent 7  :distance 1))
-     ("1"    . (:sexp ":foo" :indent 7  :distance 2))
-     (":bar" . (:sexp ":bar" :indent 14 :distance 1))
-     ("2"    . (:sexp ":bar" :indent 14 :distance 2))
-     (":qux" . (:sexp ":qux" :indent 21 :distance 1))
-     ("3"    . (:sexp ":qux" :indent 21 :distance 2)))))
+     (":foo" . nil)
+     ("1"    . (:sexp ":foo" :indent 7  :distance 1))
+     (":bar" . (:sexp ":foo" :indent 7  :distance 2))
+     ("2"    . (:sexp ":bar" :indent 14 :distance 1))
+     (":qux" . (:sexp ":bar" :indent 14 :distance 2))
+     ("3"    . (:sexp ":qux" :indent 21 :distance 1)))))
 
 (ert-deftest lsip-keyword-indent-test-first-keyword ()
   (mapc
@@ -88,12 +93,12 @@
       :point-at (car it)
       :expect   (cdr it)))
    '(("func" . nil)
-     (":foo" . (:sexp ":foo" :indent 7  :distance 1))
-     ("1"    . (:sexp ":foo" :indent 7  :distance 2))
-     (":bar" . (:sexp ":foo" :indent 7  :distance 3))
-     ("2"    . (:sexp ":foo" :indent 7  :distance 4))
-     (":qux" . (:sexp ":foo" :indent 7  :distance 5))
-     ("3"    . (:sexp ":foo" :indent 7  :distance 6)))))
+     (":foo" . nil)
+     ("1"    . (:sexp ":foo" :indent 7  :distance 1))
+     (":bar" . (:sexp ":foo" :indent 7  :distance 2))
+     ("2"    . (:sexp ":foo" :indent 7  :distance 3))
+     (":qux" . (:sexp ":foo" :indent 7  :distance 4))
+     ("3"    . (:sexp ":foo" :indent 7  :distance 5)))))
 
 ;;; test region
 
@@ -299,9 +304,10 @@ c)"))
 b
 c)"))
 
+
 (ert-deftest lisp-keyword-indent-non-keyvalue ()
   (let ((lisp-keyword-indent-rules
-         '((":" . (:value-nums 1 :value-offset 2)))))
+         '((nil . ((":" . (:value-nums 1 :value-offset 2)))))))
     (lisp-keyword-indent-test--indent-region
      :expect "\
 '(:keyword
