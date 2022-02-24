@@ -16,7 +16,8 @@ Clone this repository to `~/.emacs.d/site-lisp/lisp-keyword-indent`. Add the fol
 ## Usage
 
 ```elisp
-(setq listp-indent-function 'lisp-keyword-indent)
+(setq listp-indent-function 'lisp-indent-function)
+(global-lisp-keyword-indent-mode 1)
 ```
 
 Before:
@@ -50,3 +51,18 @@ Also can indent `cl-defun` like following:
                 &rest
                   rest-part))
 ```
+
+And `cl-loop` like following:
+
+```elisp
+(cl-loop for x
+           in '(1 2 3)
+         when (eq x 1)
+           do (message "This is 1")
+           and collect 1
+                 into result
+         else
+           do (message "This is other")
+         finally return result)
+```
+
