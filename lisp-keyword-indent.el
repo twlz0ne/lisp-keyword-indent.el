@@ -4,8 +4,8 @@
 
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
-;; Version: 0.3.1
-;; Package-Requires: ((emacs "24.4"))
+;; Version: 0.3.2
+;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
 ;; Keywords: tools
 
@@ -57,55 +57,55 @@
 (require 'thingatpt)
 (require 'rx)
 
-(defvar lisp-keyword-indent/cl-loop-initialization-keywords
+(defvar lisp-keyword-indent--cl-loop-initialization-keywords
   '("for" "with" "repeat" "named")
   "Keywords which introduce initialization clauses.")
 
-(defvar lisp-keyword-indent/cl-loop-iteration-keywords
+(defvar lisp-keyword-indent--cl-loop-iteration-keywords
   '("while" "until" "always" "never" "thereis")
   "Keywords which introduce iteration clauses.")
 
-(defvar lisp-keyword-indent/cl-loop-condition-keywords
+(defvar lisp-keyword-indent--cl-loop-condition-keywords
   '("if" "when" "unless" "else" "end")
   "keywords introduce condition clauses.")
 
-(defvar lisp-keyword-indent/cl-loop-accumulation-keywords
+(defvar lisp-keyword-indent--cl-loop-accumulation-keywords
   '("collect" "append" "nconc" "concat" "vconcat" "count" "sum"
     "maximize" "minimize")
   "Keywords which introduce accumulation clauses.")
 
 (defvar lisp-keyword-indent-cl-loop-regexp
   (rx-to-string
-   `(seq (or ,@lisp-keyword-indent/cl-loop-initialization-keywords
-             ,@lisp-keyword-indent/cl-loop-iteration-keywords
-             ,@lisp-keyword-indent/cl-loop-condition-keywords
+   `(seq (or ,@lisp-keyword-indent--cl-loop-initialization-keywords
+             ,@lisp-keyword-indent--cl-loop-iteration-keywords
+             ,@lisp-keyword-indent--cl-loop-condition-keywords
              "initially" "finally" "return")
          eow))
   "Regexp matching the cl-loop keywords.")
 
 (defun lisp-keyword-indent--check-cl-loop-do-clause (indent-point state rules)
-  (let ((point (ppss-innermost-start state)))
+  (let ((point (nth 1 state)))
     (when point
       (let ((kw (lisp-keyword-indent--last-keyword indent-point state rules)))
         (when (or (member (plist-get kw :sexp) '("and"))
                   (member (plist-get kw :sexp)
-                          lisp-keyword-indent/cl-loop-condition-keywords))
+                          lisp-keyword-indent--cl-loop-condition-keywords))
           (+ 2 (plist-get kw :indent)))))))
 
 (defun lisp-keyword-indent--check-cl-loop-and-clause (indent-point state rules)
-  (let ((point (ppss-innermost-start state)))
+  (let ((point (nth 1 state)))
     (when point
       (let ((kw (lisp-keyword-indent--last-keyword indent-point state rules)))
         (when (member (plist-get kw :sexp) '("do"))
           (plist-get kw :indent))))))
 
 (defun lisp-keyword-indent--check-cl-loop-accumulation-clause (indent-point state rules)
-  (let ((point (ppss-innermost-start state)))
+  (let ((point (nth 1 state)))
     (when point
       (let* ((kw (lisp-keyword-indent--last-keyword indent-point state rules))
              (sexp (plist-get kw :sexp)))
         (when (or (member sexp '("do" "and"))
-                  (member sexp lisp-keyword-indent/cl-loop-condition-keywords))
+                  (member sexp lisp-keyword-indent--cl-loop-condition-keywords))
           (+ 2 (plist-get kw :indent)))))))
 
 (defcustom lisp-keyword-indent-rules
@@ -134,7 +134,7 @@
      :extra-check #'lisp-keyword-indent--check-cl-loop-and-clause)
     ;; collect/append/nconc/concat/vconcat/count/sum/maximize/minimize
     (list
-     (rx-to-string `(seq (or ,@lisp-keyword-indent/cl-loop-accumulation-keywords) eow))
+     (rx-to-string `(seq (or ,@lisp-keyword-indent--cl-loop-accumulation-keywords) eow))
      :value-nums t :value-offset 2
      :extra-check #'lisp-keyword-indent--check-cl-loop-accumulation-clause))
    '(loop . cl-loop))
@@ -163,12 +163,6 @@ Following are supported properties:
                                (save-excursion
                                  (goto-char (1+ point))
                                  (not (eq 'if (symbol-at-point)))))))"
-  :type 'list
-  :group 'lisp-keyword-indent)
-
-(defcustom list-keyword-indent-ignore-forms
-  '(defmethod cl-defmethod advice-add)
-  "List of forms that don't apply keywork indent."
   :type 'list
   :group 'lisp-keyword-indent)
 
@@ -204,7 +198,8 @@ Return value is in the form of:
         sexp)
     (save-excursion
       (goto-char indent-point)
-      (while (unless (bobp) (ignore-error scan-error (backward-sexp) t))
+      (while (unless (bobp)
+               (condition-case nil (progn (backward-sexp) t) (scan-error nil)))
         (let ((curr-sexp (lisp-keyword-indent--keyword-at-point rules)))
             (setq temp-distance (1+ temp-distance))
             (when curr-sexp
@@ -229,7 +224,8 @@ Return value is in the form of:
         sexp)
     (save-excursion
       (goto-char indent-point)
-      (while (unless (or sexp (bobp)) (ignore-error scan-error (backward-sexp) t))
+      (while (unless (or sexp (bobp))
+               (condition-case nil (progn (backward-sexp) t) (scan-error nil)))
           (let ((curr-sexp (lisp-keyword-indent--keyword-at-point rules)))
             (setq temp-distance (1+ temp-distance))
             (when curr-sexp
@@ -272,7 +268,7 @@ Return value is in the form of:
 
 (defun lisp-keyword-indent-1 (indent-point state)
   (let* ((start-of-last (nth 2 state))
-         (start-of-innermost (ppss-innermost-start state))
+         (start-of-innermost (nth 1 state))
          (innermost-form (lisp-keyword-indent--innermost-form state))
          (rules (lisp-keyword-indent--form-rules innermost-form))
          (sexp-rule (save-excursion
@@ -308,15 +304,14 @@ Return value is in the form of:
                            (plist-get last-sate :sexp) rules)))
               (value-nums (when last-rule
                             (or (plist-get (cdr last-rule) :value-nums) 0)))
-              (distance (plist-get last-sate :distance)))
+              (sexp-distance (plist-get last-sate :distance)))
          (when value-nums
            (if (or (not (numberp value-nums))
-                   (and (numberp value-nums) (<= distance value-nums)))
+                   (and (numberp value-nums) (<= sexp-distance value-nums)))
                (+ (plist-get last-sate :indent)
                   (or (plist-get (cdr last-rule) :value-offset) 0))
              ;; not keyvalue, align prev keyword
-             (+ (plist-get last-sate :indent))
-             ))))
+             (+ (plist-get last-sate :indent))))))
      ;; no rule
      (let ((outer-start (car (reverse (nth 9 state)))))
        ;; in quote list
