@@ -1,9 +1,8 @@
-[![Build Status](https://travis-ci.com/twlz0ne/lisp-keyword-indent.el.svg?branch=master)](https://travis-ci.com/twlz0ne/lisp-keyword-indent.el)
+[![CI](https://github.com/twlz0ne/lisp-keyword-indent.el/workflows/CI/badge.svg)](https://github.com/twlz0ne/lisp-keyword-indent.el/actions?query=workflow%3ACI)
 
 # lisp-keyword-indent.el
 
 Rectify the indent of keyword for Emacs Lisp.
-
 
 ## Installation
 
@@ -27,6 +26,7 @@ Before:
      :b 2
      :c 3)
 ```
+
 
 After:
 
