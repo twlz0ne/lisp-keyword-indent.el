@@ -4,7 +4,7 @@
 
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
-;; Version: 0.3.2
+;; Version: 0.3.3
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
 ;; Keywords: tools
@@ -110,9 +110,10 @@
 
 (defcustom lisp-keyword-indent-rules
   (list
-   '(nil
+   '(t
      (":\\(?:\\sw+\\)" :value-nums 1 :value-offset 0)
      ("&\\(?:\\sw+\\)" :value-nums t :value-offset 2))
+   '(cl-defmethod . nil)
    (list
     'cl-loop
     ;; for/with/repeat/named
@@ -142,9 +143,10 @@
 
 Eache element of it can be in one of the following forms:
 
-  (nil  . ((REGEXP PROPERTIES) ...))            ;; for all forms
+  (t    . ((REGEXP PROPERTIES) ...))            ;; for all forms
   (FORM . ((REGEXP PROPERTIES) ...))            ;; for specific form
   (FORM . ANOTHER-FORM)                         ;; same as another form
+  (FORM . nil)                                  ;; no rule for form
 
 Following are supported properties:
 
@@ -171,7 +173,7 @@ Following are supported properties:
   (let ((sexp (thing-at-point 'sexp t)))
     (when sexp
       (catch 'break
-        (dolist (rule (or rules (alist-get nil lisp-keyword-indent-rules)))
+        (dolist (rule (or rules (alist-get t lisp-keyword-indent-rules)))
           (when (string-match (concat "\\`\\(?:" (car rule) "\\)") sexp)
             (throw 'break (cons sexp rule))))))))
 
@@ -180,7 +182,7 @@ Following are supported properties:
   (let ((sexp (thing-at-point 'sexp t)))
     (when sexp
       (catch 'break
-        (dolist (rule (or rules (alist-get nil lisp-keyword-indent-rules)))
+        (dolist (rule (or rules (alist-get t lisp-keyword-indent-rules)))
           (when (string-match-p (concat "\\`\\(?:" (car rule) "\\)") sexp)
             (throw 'break sexp)))))))
 
@@ -247,7 +249,7 @@ Return value is in the form of:
 
 (defun lisp-keyword-indent--match-rule (string rules)
   (catch 'break
-    (dolist (rule (or rules (alist-get nil lisp-keyword-indent-rules)))
+    (dolist (rule (or rules (alist-get t lisp-keyword-indent-rules)))
       (when (string-match-p (concat "\\`\\(?:" (car rule) "\\)") string)
        (throw 'break rule)))))
 
@@ -259,59 +261,61 @@ Return value is in the form of:
 
 (defun lisp-keyword-indent--form-rules (form)
   "Return rules for FORM."
-  (let ((elt (alist-get form lisp-keyword-indent-rules)))
+  (let ((elt (assq form lisp-keyword-indent-rules)))
     (if (not elt)
-        (alist-get nil lisp-keyword-indent-rules)
-      (if (symbolp elt)
-          (alist-get elt lisp-keyword-indent-rules)
-        elt))))
+        (alist-get t lisp-keyword-indent-rules)
+      (if (symbolp (cdr elt))
+          (alist-get (cdr elt) lisp-keyword-indent-rules)
+        (cdr elt)))))
 
 (defun lisp-keyword-indent-1 (indent-point state)
   (let* ((start-of-last (nth 2 state))
          (start-of-innermost (nth 1 state))
          (innermost-form (lisp-keyword-indent--innermost-form state))
          (rules (lisp-keyword-indent--form-rules innermost-form))
-         (sexp-rule (save-excursion
-                      (goto-char indent-point)
-                      (when (ignore-errors (forward-sexp 1) t)
-                        (lisp-keyword-indent--beginning-of-sexp)
-                        (lisp-keyword-indent--rule-at-point rules))))
-         (indent-sexp (car sexp-rule))
-         (indent-rule (cdr sexp-rule)))
+         (sexp-rule (when rules
+                      (save-excursion
+                        (goto-char indent-point)
+                        (when (ignore-errors (forward-sexp 1) t)
+                          (lisp-keyword-indent--beginning-of-sexp)
+                          (lisp-keyword-indent--rule-at-point rules)))))
+         (indent-sexp (when sexp-rule (car sexp-rule)))
+         (indent-rule (when sexp-rule (cdr sexp-rule))))
     (or
-     ;; indent keyword
-     (if indent-rule
-         (let* ((checker (plist-get (cdr indent-rule) :extra-check))
-                (checker-return nil)
-                (first-keyword-state
-                 (when (if checker
-                           (setq checker-return
-                                 (funcall checker
-                                          indent-point
-                                          state
-                                          rules))
-                         t)
-                   (lisp-keyword-indent--first-keyword indent-point
-                                                       state rules))))
-           (when first-keyword-state
-              (+ (or checker-return (plist-get first-keyword-state :indent))
-                 (or (plist-get (cdr indent-rule) :offset) 0))))
-       ;; indent keyvalue
-       (let* ((last-sate (lisp-keyword-indent--last-keyword indent-point
-                                                            state rules))
-              (last-rule (when last-sate
-                          (lisp-keyword-indent--match-rule
-                           (plist-get last-sate :sexp) rules)))
-              (value-nums (when last-rule
-                            (or (plist-get (cdr last-rule) :value-nums) 0)))
-              (sexp-distance (plist-get last-sate :distance)))
-         (when value-nums
-           (if (or (not (numberp value-nums))
-                   (and (numberp value-nums) (<= sexp-distance value-nums)))
-               (+ (plist-get last-sate :indent)
-                  (or (plist-get (cdr last-rule) :value-offset) 0))
-             ;; not keyvalue, align prev keyword
-             (+ (plist-get last-sate :indent))))))
+     (and rules
+          ;; indent keyword
+          (if indent-rule
+              (let* ((checker (plist-get (cdr indent-rule) :extra-check))
+                     (checker-return nil)
+                     (first-keyword-state
+                      (when (if checker
+                                (setq checker-return
+                                      (funcall checker
+                                               indent-point
+                                               state
+                                               rules))
+                              t)
+                        (lisp-keyword-indent--first-keyword indent-point
+                                                            state rules))))
+                (when first-keyword-state
+                  (+ (or checker-return (plist-get first-keyword-state :indent))
+                     (or (plist-get (cdr indent-rule) :offset) 0))))
+            ;; indent keyvalue
+            (let* ((last-sate (lisp-keyword-indent--last-keyword indent-point
+                                                                 state rules))
+                   (last-rule (when last-sate
+                                (lisp-keyword-indent--match-rule
+                                 (plist-get last-sate :sexp) rules)))
+                   (value-nums (when last-rule
+                                 (or (plist-get (cdr last-rule) :value-nums) 0)))
+                   (sexp-distance (plist-get last-sate :distance)))
+              (when value-nums
+                (if (or (not (numberp value-nums))
+                        (and (numberp value-nums) (<= sexp-distance value-nums)))
+                    (+ (plist-get last-sate :indent)
+                       (or (plist-get (cdr last-rule) :value-offset) 0))
+                  ;; not keyvalue, align prev keyword
+                  (+ (plist-get last-sate :indent)))))))
      ;; no rule
      (let ((outer-start (car (reverse (nth 9 state)))))
        ;; in quote list

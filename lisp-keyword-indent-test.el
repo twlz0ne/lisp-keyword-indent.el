@@ -56,7 +56,7 @@
      (lisp-keyword-indent-tes--execute-fn-at-point
       :input    "'(func :foo 1 :bar 2 :qux 3)"
       :exe-func 'lisp-keyword-indent-test--keyword-at-point
-      :rules    (alist-get nil lisp-keyword-indent-rules)
+      :rules    (alist-get t lisp-keyword-indent-rules)
       :point-at (car it)
       :expect   (cdr it)))
    '(("func" . nil)
@@ -73,7 +73,7 @@
      (lisp-keyword-indent-tes--execute-fn-at-point
       :input    "'(func :foo 1 :bar 2 :qux 3)"
       :exe-func 'lisp-keyword-indent--last-keyword
-      :rules    (alist-get nil lisp-keyword-indent-rules)
+      :rules    (alist-get t lisp-keyword-indent-rules)
       :point-at (car it)
       :expect   (cdr it)))
    '(("func" . nil)
@@ -304,10 +304,9 @@ c)"))
 b
 c)"))
 
-
 (ert-deftest lisp-keyword-indent-non-keyvalue ()
   (let ((lisp-keyword-indent-rules
-         '((nil . ((":" . (:value-nums 1 :value-offset 2)))))))
+         '((t . ((":" . (:value-nums 1 :value-offset 2)))))))
     (lisp-keyword-indent-test--indent-region
      :expect "\
 '(:keyword
@@ -317,6 +316,15 @@ c)"))
 '(:keyword
 keyvalue
 non-keyvalue)")))
+
+(ert-deftest lisp-keyword-indent-test-cl-defmethod ()
+  (lisp-keyword-indent-test--indent-region
+   :expect "\
+(cl-defmethod foo :before ()
+  nil)"
+   :input "\
+(cl-defmethod foo :before ()
+nil)"))
 
 (provide 'lisp-keyword-indent-test)
 
