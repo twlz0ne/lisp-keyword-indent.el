@@ -353,6 +353,7 @@ non-keyvalue)")))
          do (message \"%s %s\" k v))"))
 
 (ert-deftest lisp-keyword-indent-test-cl-defmethod ()
+  (skip-unless (version< "26" emacs-version))
   (lisp-keyword-indent-test--indent-region
    :expect "\
 (cl-defmethod foo :before ()

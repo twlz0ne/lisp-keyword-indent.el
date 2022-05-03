@@ -4,7 +4,7 @@
 
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
-;; Version: 0.3.3
+;; Version: 0.3.4
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
 ;; Keywords: tools
@@ -186,7 +186,7 @@ Following are supported properties:
           (when (string-match-p (concat "\\`\\(?:" (car rule) "\\)") sexp)
             (throw 'break sexp)))))))
 
-(defun lisp-keyword-indent--first-keyword (indent-point state rules)
+(defun lisp-keyword-indent--first-keyword (indent-point _state rules)
   "Return first keyword before POINT.
 
 Return value is in the form of:
@@ -194,9 +194,9 @@ Return value is in the form of:
   (:sexp     SEXP       ;; keyword sexp
    :indent   INDENT     ;; indent of keyword
    :distance DISTANCE)  ;; numbers of sexp between INDENT-POINT and keyword"
-  (let ((innermost-start (nth 1 state))
-        (temp-distance 0)
+  (let ((temp-distance 0)
         distance
+        column
         sexp)
     (save-excursion
       (goto-char indent-point)
@@ -211,7 +211,7 @@ Return value is in the form of:
       (when sexp
         (list :sexp sexp :indent column :distance distance)))))
 
-(defun lisp-keyword-indent--last-keyword (indent-point state rules)
+(defun lisp-keyword-indent--last-keyword (indent-point _state rules)
   "Return last keyword before POINT.
 
 Return value is in the form of:
@@ -219,8 +219,7 @@ Return value is in the form of:
   (:sexp     SEXP       ;; keyword sexp
    :indent   INDENT     ;; indent of keyword
    :distance DISTANCE)  ;; numbers of sexp between INDENT-POINT and keyword"
-  (let ((innermost-start (nth 1 state))
-        (temp-distance 0)
+  (let ((temp-distance 0)
         distance
         column
         sexp)
@@ -269,9 +268,7 @@ Return value is in the form of:
         (cdr elt)))))
 
 (defun lisp-keyword-indent-1 (indent-point state)
-  (let* ((start-of-last (nth 2 state))
-         (start-of-innermost (nth 1 state))
-         (innermost-form (lisp-keyword-indent--innermost-form state))
+  (let* ((innermost-form (lisp-keyword-indent--innermost-form state))
          (rules (lisp-keyword-indent--form-rules innermost-form))
          (sexp-rule (when rules
                       (save-excursion
@@ -279,7 +276,6 @@ Return value is in the form of:
                         (when (ignore-errors (forward-sexp 1) t)
                           (lisp-keyword-indent--beginning-of-sexp)
                           (lisp-keyword-indent--rule-at-point rules)))))
-         (indent-sexp (when sexp-rule (car sexp-rule)))
          (indent-rule (when sexp-rule (cdr sexp-rule))))
     (or
      (and rules
