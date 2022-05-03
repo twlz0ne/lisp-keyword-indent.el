@@ -317,6 +317,41 @@ c)"))
 keyvalue
 non-keyvalue)")))
 
+(ert-deftest lisp-keyword-indent-test-cl-loop ()
+  (lisp-keyword-indent-test--indent-region
+   :expect "\
+(cl-loop for x
+           in '(1 2 3)
+         when (eq x 1)
+           do (message \"This is 1\")
+           and collect 1
+                 into result
+         else
+           do (message \"This is other\")
+         finally return result)"
+   :input "\
+(cl-loop for x
+         in '(1 2 3)
+         when (eq x 1)
+         do (message \"This is 1\")
+         and collect 1
+         into result
+         else
+         do (message \"This is other\")
+         finally return result)")
+
+  (lisp-keyword-indent-test--indent-region
+   :expect "\
+(cl-loop for k
+           being the hash-key of h
+           using (hash-value v)
+           do (message \"%s %s\" k v))"
+   :input "\
+(cl-loop for k
+         being the hash-key of h
+         using (hash-value v)
+         do (message \"%s %s\" k v))"))
+
 (ert-deftest lisp-keyword-indent-test-cl-defmethod ()
   (lisp-keyword-indent-test--indent-region
    :expect "\
