@@ -4,7 +4,7 @@
 
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
-;; Version: 0.3.4
+;; Version: 0.3.5
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
 ;; Keywords: tools
@@ -337,13 +337,10 @@ Return value is in the form of:
   :init-value nil
   :lighter ""
   :keymap nil
+  :global t
   (if lisp-keyword-indent-mode
       (advice-add 'lisp-indent-function :override #'lisp-keyword-indent)
     (advice-remove 'lisp-indent-function #'lisp-keyword-indent)))
-
-;;;###autoload
-(define-globalized-minor-mode global-lisp-keyword-indent-mode
-  lisp-keyword-indent-mode (lambda () (lisp-keyword-indent-mode 1)))
 
 (provide 'lisp-keyword-indent)
 
