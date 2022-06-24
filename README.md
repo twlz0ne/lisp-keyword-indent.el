@@ -15,7 +15,7 @@ Clone this repository to `~/.emacs.d/site-lisp/lisp-keyword-indent`. Add the fol
 ## Usage
 
 ```elisp
-(setq listp-indent-function 'lisp-indent-function)
+(setq lisp-indent-function 'lisp-indent-function)
 (global-lisp-keyword-indent-mode 1)
 ```
 
