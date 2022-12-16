@@ -78,11 +78,11 @@
       :expect   (cdr it)))
    '(("func" . nil)
      (":foo" . nil)
-     ("1"    . (:sexp ":foo" :indent 7  :distance 1))
-     (":bar" . (:sexp ":foo" :indent 7  :distance 2))
-     ("2"    . (:sexp ":bar" :indent 14 :distance 1))
-     (":qux" . (:sexp ":bar" :indent 14 :distance 2))
-     ("3"    . (:sexp ":qux" :indent 21 :distance 1)))))
+     ("1"    . (:sexp ":foo" :point 8 :indent 7  :distance 1))
+     (":bar" . (:sexp ":foo" :point 8 :indent 7  :distance 2))
+     ("2"    . (:sexp ":bar" :point 15 :indent 14 :distance 1))
+     (":qux" . (:sexp ":bar" :point 15 :indent 14 :distance 2))
+     ("3"    . (:sexp ":qux" :point 22 :indent 21 :distance 1)))))
 
 (ert-deftest lsip-keyword-indent-test-first-keyword ()
   (mapc
@@ -94,11 +94,11 @@
       :expect   (cdr it)))
    '(("func" . nil)
      (":foo" . nil)
-     ("1"    . (:sexp ":foo" :indent 7  :distance 1))
-     (":bar" . (:sexp ":foo" :indent 7  :distance 2))
-     ("2"    . (:sexp ":foo" :indent 7  :distance 3))
-     (":qux" . (:sexp ":foo" :indent 7  :distance 4))
-     ("3"    . (:sexp ":foo" :indent 7  :distance 5)))))
+     ("1"    . (:sexp ":foo" :point 8 :indent 7  :distance 1))
+     (":bar" . (:sexp ":foo" :point 8 :indent 7  :distance 2))
+     ("2"    . (:sexp ":foo" :point 8 :indent 7  :distance 3))
+     (":qux" . (:sexp ":foo" :point 8 :indent 7  :distance 4))
+     ("3"    . (:sexp ":foo" :point 8 :indent 7  :distance 5)))))
 
 ;;; test region
 

@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
 ;; Version: 0.3.5
-;; Last-Updated: 2022-12-16 11:13:29 +0800
+;; Last-Updated: 2022-12-16 11:53:49 +0800
 ;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
@@ -194,11 +194,13 @@ Following are supported properties:
 Return value is in the form of:
 
   (:sexp     SEXP       ;; keyword sexp
+   :point    POINT      ;; point of keyword
    :indent   INDENT     ;; indent of keyword
    :distance DISTANCE)  ;; numbers of sexp between INDENT-POINT and keyword"
   (let ((temp-distance 0)
         distance
         column
+        point
         sexp)
     (save-excursion
       (goto-char indent-point)
@@ -208,10 +210,11 @@ Return value is in the form of:
             (setq temp-distance (1+ temp-distance))
             (when curr-sexp
               (setq sexp curr-sexp)
+              (setq point (point))
               (setq column (current-column))
               (setq distance temp-distance))))
       (when sexp
-        (list :sexp sexp :indent column :distance distance)))))
+        (list :sexp sexp :point point :indent column :distance distance)))))
 
 (defun lisp-keyword-indent--last-keyword (indent-point _state rules)
   "Return last keyword before POINT.
@@ -219,11 +222,13 @@ Return value is in the form of:
 Return value is in the form of:
 
   (:sexp     SEXP       ;; keyword sexp
+   :point    POINT      ;; point of keyword
    :indent   INDENT     ;; indent of keyword
    :distance DISTANCE)  ;; numbers of sexp between INDENT-POINT and keyword"
   (let ((temp-distance 0)
         distance
         column
+        point
         sexp)
     (save-excursion
       (goto-char indent-point)
@@ -233,10 +238,11 @@ Return value is in the form of:
             (setq temp-distance (1+ temp-distance))
             (when curr-sexp
               (setq sexp curr-sexp)
+              (setq point (point))
               (setq column (current-column))
               (setq distance temp-distance))))
       (when sexp
-        (list :sexp sexp :indent column :distance distance)))))
+        (list :sexp sexp :point point :indent column :distance distance)))))
 
 (defun lisp-keyword-indent--origin-function ()
   (let ((advice (advice--symbol-function lisp-indent-function)))
