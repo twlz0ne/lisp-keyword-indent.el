@@ -5,6 +5,8 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
 ;; Version: 0.3.5
+;; Last-Updated: 2022-12-16 11:13:29 +0800
+;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
 ;; Keywords: tools
@@ -297,21 +299,21 @@ Return value is in the form of:
                   (+ (or checker-return (plist-get first-keyword-state :indent))
                      (or (plist-get (cdr indent-rule) :offset) 0))))
             ;; indent keyvalue
-            (let* ((last-sate (lisp-keyword-indent--last-keyword indent-point
-                                                                 state rules))
-                   (last-rule (when last-sate
+            (let* ((last-state (lisp-keyword-indent--last-keyword indent-point
+                                                                  state rules))
+                   (last-rule (when last-state
                                 (lisp-keyword-indent--match-rule
-                                 (plist-get last-sate :sexp) rules)))
+                                 (plist-get last-state :sexp) rules)))
                    (value-nums (when last-rule
                                  (or (plist-get (cdr last-rule) :value-nums) 0)))
-                   (sexp-distance (plist-get last-sate :distance)))
+                   (sexp-distance (plist-get last-state :distance)))
               (when value-nums
                 (if (or (not (numberp value-nums))
                         (and (numberp value-nums) (<= sexp-distance value-nums)))
-                    (+ (plist-get last-sate :indent)
+                    (+ (plist-get last-state :indent)
                        (or (plist-get (cdr last-rule) :value-offset) 0))
                   ;; not keyvalue, align prev keyword
-                  (+ (plist-get last-sate :indent)))))))
+                  (+ (plist-get last-state :indent)))))))
      ;; no rule
      (let ((outer-start (car (reverse (nth 9 state)))))
        ;; in quote list
