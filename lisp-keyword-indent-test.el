@@ -350,7 +350,21 @@ non-keyvalue)")))
 (cl-loop for k
          being the hash-key of h
          using (hash-value v)
-         do (message \"%s %s\" k v))"))
+         do (message \"%s %s\" k v))")
+
+  (lisp-keyword-indent-test--indent-region
+   :expect "\
+(cl-loop for i in nums
+         when (oddp i) do
+           (message \"%s\" i)
+         and
+           collect i)"
+   :input "\
+(cl-loop for i in nums
+         when (oddp i) do
+         (message \"%s\" i)
+         and
+         collect i)"))
 
 (ert-deftest lisp-keyword-indent-test-cl-defmethod ()
   (skip-unless (version< "26" emacs-version))

@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
 ;; Version: 0.3.5
-;; Last-Updated: 2022-12-16 11:53:49 +0800
+;; Last-Updated: 2022-12-16 12:37:35 +0800
 ;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
@@ -94,12 +94,33 @@
                           lisp-keyword-indent--cl-loop-condition-keywords))
           (+ 2 (plist-get kw :indent)))))))
 
+(defun lisp-keyword-indent--back-indentation (point)
+  "Return back indentation and point at POINT."
+  (save-excursion
+    (goto-char point)
+    (back-to-indentation)
+    (cons (current-column) (point))))
+
+(defun lisp-keyword-indent--cl-loop-do-and-body-indent (indent-point state rule)
+  "Return indent of do/and body."
+  (pcase-let* ((keyword-point (plist-get state :point))
+               (`(,back-indent . ,back-point)
+                (lisp-keyword-indent--back-indentation keyword-point)))
+    (if (equal back-point keyword-point)
+        (+ (plist-get state :indent) 2)
+      (+ back-indent 2))))
+
 (defun lisp-keyword-indent--check-cl-loop-and-clause (indent-point state rules)
   (let ((point (nth 1 state)))
     (when point
       (let ((kw (lisp-keyword-indent--last-keyword indent-point state rules)))
         (when (member (plist-get kw :sexp) '("do"))
-          (plist-get kw :indent))))))
+          (pcase-let* ((keyword-point (plist-get kw :point))
+                       (`(,back-indent . ,back-point)
+                        (lisp-keyword-indent--back-indentation keyword-point)))
+            (if (equal back-point keyword-point)
+                (plist-get kw :indent)
+              back-indent)))))))
 
 (defun lisp-keyword-indent--check-cl-loop-accumulation-clause (indent-point state rules)
   (let ((point (nth 1 state)))
@@ -108,7 +129,12 @@
              (sexp (plist-get kw :sexp)))
         (when (or (member sexp '("do" "and"))
                   (member sexp lisp-keyword-indent--cl-loop-condition-keywords))
-          (+ 2 (plist-get kw :indent)))))))
+          (pcase-let* ((keyword-point (plist-get kw :point))
+                       (`(,back-indent . ,back-point)
+                        (lisp-keyword-indent--back-indentation keyword-point)))
+            (if (equal back-point keyword-point)
+                (+ (plist-get kw :indent) 2)
+              (+ back-indent 2))))))))
 
 (defcustom lisp-keyword-indent-rules
   (list
@@ -128,12 +154,12 @@
     ;; do clause
     (list
      (rx-to-string '(seq (or "do") eow))
-     :value-nums t :value-offset 2
+     :value-nums t :value-offset #'lisp-keyword-indent--cl-loop-do-and-body-indent
      :extra-check #'lisp-keyword-indent--check-cl-loop-do-clause)
     ;; and clause
     (list
      (rx-to-string '(seq (or "and") eow))
-     :value-nums t :value-offset 2
+     :value-nums t :value-offset #'lisp-keyword-indent--cl-loop-do-and-body-indent
      :extra-check #'lisp-keyword-indent--check-cl-loop-and-clause)
     ;; collect/append/nconc/concat/vconcat/count/sum/maximize/minimize
     (list
@@ -155,7 +181,9 @@ Following are supported properties:
 :value-nums             Should be one of the 0 (no value) or 1 (1 value) or (
                         multiple values), default 0.
 
-:value-offset           Offset of keyvalue, default 0.
+:value-offset           Relative indent of keyvalue (default 0) or a function
+                        accepts three arguments (INDENT-POINT, STATE and RULE),
+                        and return an absolute indent.
 
 :extra-check            Extrac check for keyword.  It should be nil or a
                         function takes three arguments (INDENT-POINT, STATE
@@ -316,8 +344,11 @@ Return value is in the form of:
               (when value-nums
                 (if (or (not (numberp value-nums))
                         (and (numberp value-nums) (<= sexp-distance value-nums)))
-                    (+ (plist-get last-state :indent)
-                       (or (plist-get (cdr last-rule) :value-offset) 0))
+                    (let ((vo (plist-get (cdr last-rule) :value-offset)))
+                             (if (functionp vo)
+                                 (funcall vo indent-point last-state last-rule)
+                               (+ (plist-get last-state :indent)
+                                 (or vo 0))))
                   ;; not keyvalue, align prev keyword
                   (+ (plist-get last-state :indent)))))))
      ;; no rule
