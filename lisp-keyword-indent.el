@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
 ;; Version: 0.3.5
-;; Last-Updated: 2022-12-16 12:37:35 +0800
+;; Last-Updated: 2022-12-19 16:41:16 +0800
 ;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
@@ -101,7 +101,7 @@
     (back-to-indentation)
     (cons (current-column) (point))))
 
-(defun lisp-keyword-indent--cl-loop-do-and-body-indent (indent-point state rule)
+(defun lisp-keyword-indent--cl-loop-do-and-body-indent (_ state _)
   "Return indent of do/and body."
   (pcase-let* ((keyword-point (plist-get state :point))
                (`(,back-indent . ,back-point)
@@ -139,8 +139,8 @@
 (defcustom lisp-keyword-indent-rules
   (list
    '(t
-     (":\\(?:\\sw+\\)" :value-nums 1 :value-offset 0)
-     ("&\\(?:\\sw+\\)" :value-nums t :value-offset 2))
+     (":\\(?:\\sw+\\)" nil 0 1)
+     ("&\\(?:\\sw+\\)" nil 2 t))
    '(cl-defmethod . nil)
    (list
     'cl-loop
@@ -148,53 +148,51 @@
     ;; while/until/always/never/thereis
     ;; if/when/unless/else/end
     ;; initially/finally/return
-    (list
-     lisp-keyword-indent-cl-loop-regexp
-     :value-nums t :value-offset 2)
+    (list lisp-keyword-indent-cl-loop-regexp nil 2 t)
     ;; do clause
     (list
      (rx-to-string '(seq (or "do") eow))
-     :value-nums t :value-offset #'lisp-keyword-indent--cl-loop-do-and-body-indent
-     :extra-check #'lisp-keyword-indent--check-cl-loop-do-clause)
+     #'lisp-keyword-indent--check-cl-loop-do-clause
+     #'lisp-keyword-indent--cl-loop-do-and-body-indent
+     t)
     ;; and clause
     (list
      (rx-to-string '(seq (or "and") eow))
-     :value-nums t :value-offset #'lisp-keyword-indent--cl-loop-do-and-body-indent
-     :extra-check #'lisp-keyword-indent--check-cl-loop-and-clause)
+     #'lisp-keyword-indent--check-cl-loop-and-clause
+     #'lisp-keyword-indent--cl-loop-do-and-body-indent
+     t)
     ;; collect/append/nconc/concat/vconcat/count/sum/maximize/minimize
     (list
      (rx-to-string `(seq (or ,@lisp-keyword-indent--cl-loop-accumulation-keywords) eow))
-     :value-nums t :value-offset 2
-     :extra-check #'lisp-keyword-indent--check-cl-loop-accumulation-clause))
+     #'lisp-keyword-indent--check-cl-loop-accumulation-clause
+     2 t))
    '(loop . cl-loop))
-  "Rules of keyword indent.
+  "A list of indent rules.
 
 Eache element of it can be in one of the following forms:
 
-  (t    . ((REGEXP PROPERTIES) ...))            ;; for all forms
-  (FORM . ((REGEXP PROPERTIES) ...))            ;; for specific form
-  (FORM . ANOTHER-FORM)                         ;; same as another form
-  (FORM . nil)                                  ;; no rule for form
+  (t    . (INDENT-RULE ...))    ;; for all forms
+  (FORM . (INDENT-RULE ...))    ;; for specific form
+  (FORM . ANOTHER-FORM)         ;; same as another form
+  (FORM . nil)                  ;; no rule for form
 
-Following are supported properties:
+Each INDENT-RULE should be in the following form:
 
-:value-nums             Should be one of the 0 (no value) or 1 (1 value) or (
-                        multiple values), default 0.
+  (ANCHOR-MATCHER       ;; regex to match the indent anchor.
+   ANCHOR-INDENTER      ;; Indentation of the anchor it self.
+   ITEM-INDENTER        ;; Indentation of the anchor\\='s item.
+   ITEM-NUMS)           ;; How many items the indentation apply on, t means all.
 
-:value-offset           Relative indent of keyvalue (default 0) or a function
-                        accepts three arguments (INDENT-POINT, STATE and RULE),
-                        and return an absolute indent.
+An INDENTER can be nil (use default indent), a number (offset of default indent)
+or a function accepts 3 arguments (INDENT-POINT STATE FORM-RULES) and return
+an abs indent if success, for example:
 
-:extra-check            Extrac check for keyword.  It should be nil or a
-                        function takes three arguments (INDENT-POINT, STATE
-                        and RULE), and return t if success, e.g.:
-
-                        (lambda (indent-point state rule)
-                           (let ((point (car (last (ppss-open-parens state)))))
-                             (when point
-                               (save-excursion
-                                 (goto-char (1+ point))
-                                 (not (eq 'if (symbol-at-point)))))))"
+  (lambda (indent-point state rules)
+    (let ((point (car (last (ppss-open-parens state)))))
+      (when point
+        (save-excursion
+          (goto-char (1+ point))
+          (not (eq \\='if (symbol-at-point)))))))"
   :type 'list
   :group 'lisp-keyword-indent)
 
@@ -317,38 +315,39 @@ Return value is in the form of:
      (and rules
           ;; indent keyword
           (if indent-rule
-              (let* ((checker (plist-get (cdr indent-rule) :extra-check))
-                     (checker-return nil)
-                     (first-keyword-state
-                      (when (if checker
-                                (setq checker-return
-                                      (funcall checker
-                                               indent-point
-                                               state
-                                               rules))
-                              t)
-                        (lisp-keyword-indent--first-keyword indent-point
-                                                            state rules))))
+              (pcase-let*
+                  ((`(,_ ,anchor-indenter . ,_) indent-rule)
+                   (indenter-return nil)
+                   (first-keyword-state
+                    (when (if (functionp anchor-indenter)
+                              (setq indenter-return
+                                    (funcall anchor-indenter
+                                             indent-point
+                                             state
+                                             rules))
+                            t)
+                      (lisp-keyword-indent--first-keyword indent-point
+                                                          state rules))))
                 (when first-keyword-state
-                  (+ (or checker-return (plist-get first-keyword-state :indent))
-                     (or (plist-get (cdr indent-rule) :offset) 0))))
+                  (or indenter-return
+                      (+ (plist-get first-keyword-state :indent)
+                         (or anchor-indenter 0)))))
             ;; indent keyvalue
-            (let* ((last-state (lisp-keyword-indent--last-keyword indent-point
-                                                                  state rules))
-                   (last-rule (when last-state
-                                (lisp-keyword-indent--match-rule
-                                 (plist-get last-state :sexp) rules)))
-                   (value-nums (when last-rule
-                                 (or (plist-get (cdr last-rule) :value-nums) 0)))
-                   (sexp-distance (plist-get last-state :distance)))
-              (when value-nums
-                (if (or (not (numberp value-nums))
-                        (and (numberp value-nums) (<= sexp-distance value-nums)))
-                    (let ((vo (plist-get (cdr last-rule) :value-offset)))
-                             (if (functionp vo)
-                                 (funcall vo indent-point last-state last-rule)
-                               (+ (plist-get last-state :indent)
-                                 (or vo 0))))
+            (pcase-let*
+                ((last-state (lisp-keyword-indent--last-keyword indent-point
+                                                                state rules))
+                 (last-rule (when last-state
+                              (lisp-keyword-indent--match-rule
+                               (plist-get last-state :sexp) rules)))
+                 (`(,_ ,_ ,item-offset ,item-nums) last-rule)
+                 (sexp-distance (plist-get last-state :distance)))
+              (when item-nums
+                (if (or (not (numberp item-nums))
+                        (and (numberp item-nums) (<= sexp-distance item-nums)))
+                    (if (functionp item-offset)
+                        (funcall item-offset indent-point last-state last-rule)
+                      (+ (or (plist-get last-state :indent) 0)
+                         (or item-offset 0)))
                   ;; not keyvalue, align prev keyword
                   (+ (plist-get last-state :indent)))))))
      ;; no rule
