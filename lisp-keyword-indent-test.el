@@ -296,12 +296,10 @@ c)"))
 (ert-deftest lisp-keyword-indent-normal-list-contains-function ()
   (lisp-keyword-indent-test--indent-region
    :expect "\
-'(defun
-  b
-  c)"
+'(defun b ()
+   c)"
    :input "\
-'(defun
-b
+'(defun b ()
 c)"))
 
 (ert-deftest lisp-keyword-indent-non-keyvalue ()

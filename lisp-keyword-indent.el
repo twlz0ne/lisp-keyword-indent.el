@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
 ;; Version: 0.3.5
-;; Last-Updated: 2022-12-19 16:41:16 +0800
+;; Last-Updated: 2023-01-04 21:05:49 +0800
 ;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
@@ -311,57 +311,44 @@ Return value is in the form of:
                           (lisp-keyword-indent--beginning-of-sexp)
                           (lisp-keyword-indent--rule-at-point rules)))))
          (indent-rule (when sexp-rule (cdr sexp-rule))))
-    (or
-     (and rules
-          ;; indent keyword
-          (if indent-rule
-              (pcase-let*
-                  ((`(,_ ,anchor-indenter . ,_) indent-rule)
-                   (indenter-return nil)
-                   (first-keyword-state
-                    (when (if (functionp anchor-indenter)
-                              (setq indenter-return
-                                    (funcall anchor-indenter
-                                             indent-point
-                                             state
-                                             rules))
-                            t)
-                      (lisp-keyword-indent--first-keyword indent-point
-                                                          state rules))))
-                (when first-keyword-state
-                  (or indenter-return
-                      (+ (plist-get first-keyword-state :indent)
-                         (or anchor-indenter 0)))))
-            ;; indent keyvalue
-            (pcase-let*
-                ((last-state (lisp-keyword-indent--last-keyword indent-point
-                                                                state rules))
-                 (last-rule (when last-state
-                              (lisp-keyword-indent--match-rule
-                               (plist-get last-state :sexp) rules)))
-                 (`(,_ ,_ ,item-offset ,item-nums) last-rule)
-                 (sexp-distance (plist-get last-state :distance)))
-              (when item-nums
-                (if (or (not (numberp item-nums))
-                        (and (numberp item-nums) (<= sexp-distance item-nums)))
-                    (if (functionp item-offset)
-                        (funcall item-offset indent-point last-state last-rule)
-                      (+ (or (plist-get last-state :indent) 0)
-                         (or item-offset 0)))
-                  ;; not keyvalue, align prev keyword
-                  (+ (plist-get last-state :indent)))))))
-     ;; no rule
-     (let ((outer-start (car (reverse (nth 9 state)))))
-       ;; in quote list
-       (when (and (eq (char-before outer-start) ?\')
-                  (eq (char-after outer-start) ?\()
-                  (not (or (eq (char-after (1+ outer-start)) ?\")
-                           (eq (char-after (1+ outer-start)) ?\())))
-         ;; align prev sexp
-         (save-excursion
-           (goto-char indent-point)
-           (backward-sexp)
-           (current-column)))))))
+    (when rules
+      ;; indent keyword
+      (if indent-rule
+          (pcase-let*
+              ((`(,_ ,anchor-indenter . ,_) indent-rule)
+               (indenter-return nil)
+               (first-keyword-state
+                (when (if (functionp anchor-indenter)
+                          (setq indenter-return
+                                (funcall anchor-indenter
+                                         indent-point
+                                         state
+                                         rules))
+                        t)
+                  (lisp-keyword-indent--first-keyword indent-point
+                                                      state rules))))
+            (when first-keyword-state
+              (or indenter-return
+                  (+ (plist-get first-keyword-state :indent)
+                     (or anchor-indenter 0)))))
+        ;; indent keyvalue
+        (pcase-let*
+            ((last-state (lisp-keyword-indent--last-keyword indent-point
+                                                            state rules))
+             (last-rule (when last-state
+                          (lisp-keyword-indent--match-rule
+                           (plist-get last-state :sexp) rules)))
+             (`(,_ ,_ ,item-offset ,item-nums) last-rule)
+             (sexp-distance (plist-get last-state :distance)))
+          (when item-nums
+            (if (or (not (numberp item-nums))
+                    (and (numberp item-nums) (<= sexp-distance item-nums)))
+                (if (functionp item-offset)
+                    (funcall item-offset indent-point last-state last-rule)
+                  (+ (or (plist-get last-state :indent) 0)
+                     (or item-offset 0)))
+              ;; not keyvalue, align prev keyword
+              (+ (plist-get last-state :indent)))))))))
 
 (defun lisp-keyword-indent (indent-point state)
   "Reset keyword indent after `lisp-indent-function'."
