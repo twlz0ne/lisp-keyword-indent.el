@@ -5,7 +5,7 @@
 ;; Author: Gong Qijian <gongqijian@gmail.com>
 ;; Created: 2019/07/02
 ;; Version: 0.3.5
-;; Last-Updated: 2023-01-04 21:05:49 +0800
+;; Last-Updated: 2023-01-14 10:39:15 +0800
 ;;           by: Gong Qijian
 ;; Package-Requires: ((emacs "25.1"))
 ;; URL: https://github.com/twlz0ne/lisp-keyword-indent.el
@@ -166,14 +166,14 @@
      (rx-to-string `(seq (or ,@lisp-keyword-indent--cl-loop-accumulation-keywords) eow))
      #'lisp-keyword-indent--check-cl-loop-accumulation-clause
      2 t))
-   '(loop . cl-loop))
+   '(loop . (:as cl-loop)))
   "A list of indent rules.
 
 Eache element of it can be in one of the following forms:
 
   (t    . (INDENT-RULE ...))    ;; for all forms
   (FORM . (INDENT-RULE ...))    ;; for specific form
-  (FORM . ANOTHER-FORM)         ;; same as another form
+  (FORM . (:as ANOTHER-FORM))   ;; same as another form
   (FORM . nil)                  ;; no rule for form
 
 Each INDENT-RULE should be in the following form:
@@ -297,9 +297,10 @@ Return value is in the form of:
   (let ((elt (assq form lisp-keyword-indent-rules)))
     (if (not elt)
         (alist-get t lisp-keyword-indent-rules)
-      (if (symbolp (cdr elt))
-          (alist-get (cdr elt) lisp-keyword-indent-rules)
-        (cdr elt)))))
+      (let ((val (cdr elt)))
+        (if (eq (car val) :as)
+            (alist-get (cadr val) lisp-keyword-indent-rules)
+          val)))))
 
 (defun lisp-keyword-indent-1 (indent-point state)
   (let* ((innermost-form (lisp-keyword-indent--innermost-form state))
