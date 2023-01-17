@@ -341,13 +341,13 @@ non-keyvalue)")))
   (lisp-keyword-indent-test--indent-region
    :expect "\
 (cl-loop for k
-           being the hash-key of h
-           using (hash-value v)
-           do (message \"%s %s\" k v))"
+           being the hash-keys of h
+           using (hash-values v)
+         do (message \"%s %s\" k v))"
    :input "\
 (cl-loop for k
-         being the hash-key of h
-         using (hash-value v)
+         being the hash-keys of h
+         using (hash-values v)
          do (message \"%s %s\" k v))")
 
   (lisp-keyword-indent-test--indent-region
@@ -362,7 +362,43 @@ non-keyvalue)")))
          when (oddp i) do
          (message \"%s\" i)
          and
-         collect i)"))
+         collect i)")
+
+  (lisp-keyword-indent-test--indent-region
+   :expect "\
+(cl-loop for n
+           from 1
+           below 5
+           by 1
+         when (oddp n)
+           collect n into odd-nums
+         collect n into all-nums
+         finally return (list :odd odd-nums :all all-nums))"
+   :input "\
+(cl-loop for n
+         from 1
+         below 5
+         by 1
+         when (oddp n)
+         collect n into odd-nums
+         collect n into all-nums
+         finally return (list :odd odd-nums :all all-nums))")
+
+  (lisp-keyword-indent-test--indent-region
+   :expect "\
+(cl-loop for ov being
+           the overlays
+           of (current-buffer)
+           from (point-min)
+           to (point-max)
+         collect ov)"
+   :input "\
+(cl-loop for ov being
+         the overlays
+         of (current-buffer)
+         from (point-min)
+         to (point-max)
+         collect ov)"))
 
 (ert-deftest lisp-keyword-indent-test-cl-defmethod ()
   (skip-unless (version< "26" emacs-version))
